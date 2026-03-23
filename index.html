@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <!-- Mobil cihazlarda uygulamanın tam ekran ve doğru ölçekte görünmesini sağlar -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#bae6fd" />
+    <title>Renk ve Şekil Oyunu</title>
+
+    <!-- Tailwind CSS (Tasarım için) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React ve ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (React JSX kodunu tarayıcının anlaması için) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; overscroll-behavior: none; user-select: none; -webkit-user-select: none; }
+        @keyframes wobble {
+            0%, 100% { transform: translateX(0%); }
+            15% { transform: translateX(-15%) rotate(-5deg); }
+            30% { transform: translateX(10%) rotate(3deg); }
+            45% { transform: translateX(-10%) rotate(-3deg); }
+            60% { transform: translateX(5%) rotate(2deg); }
+            75% { transform: translateX(-5%) rotate(-1deg); }
+        }
+        .animate-wobble { animation: wobble 0.5s ease-in-out; }
+        
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop { animation: pop 0.5s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // --- İkonlar (Dışa bağımlılığı kaldırmak için SVG olarak eklendi) ---
+        const SvgIcon = ({ children, className, color, fill, strokeWidth = 2, style }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={fill || "none"} stroke={color || "currentColor"} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
+                {children}
+            </svg>
+        );
+
+        const Circle = (props) => <SvgIcon {...props}><circle cx="12" cy="12" r="10"/></SvgIcon>;
+        const Square = (props) => <SvgIcon {...props}><rect width="18" height="18" x="3" y="3" rx="2"/></SvgIcon>;
+        const Triangle = (props) => <SvgIcon {...props}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></SvgIcon>;
+        const Star = (props) => <SvgIcon {...props}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></SvgIcon>;
+        const Heart = (props) => <SvgIcon {...props}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></SvgIcon>;
+        const Play = (props) => <SvgIcon {...props}><polygon points="6 3 20 12 6 21 6 3"/></SvgIcon>;
+        const Award = (props) => <SvgIcon {...props}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></SvgIcon>;
+        const Volume2 = (props) => <SvgIcon {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></SvgIcon>;
+        const VolumeX = (props) => <SvgIcon {...props}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" x2="15" y1="9" y2="17"/><line x1="15" x2="23" y1="9" y2="17"/></SvgIcon>;
+        const Sparkles = (props) => <SvgIcon {...props}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></SvgIcon>;
+
+        // --- Oyun Verileri ---
+        const COLORS = [
+            { id: 'kirmizi', name: 'Kırmızı', hex: '#EF4444' },
+            { id: 'mavi', name: 'Mavi', hex: '#3B82F6' },
+            { id: 'yesil', name: 'Yeşil', hex: '#22C55E' },
+            { id: 'sari', name: 'Sarı', hex: '#EAB308' },
+            { id: 'mor', name: 'Mor', hex: '#A855F7' },
+            { id: 'turuncu', name: 'Turuncu', hex: '#F97316' },
+            { id: 'pembe', name: 'Pembe', hex: '#EC4899' }
+        ];
+
+        const SHAPES = [
+            { id: 'daire', name: 'Daire', component: Circle },
+            { id: 'kare', name: 'Kare', component: Square },
+            { id: 'ucgen', name: 'Üçgen', component: Triangle },
+            { id: 'yildiz', name: 'Yıldız', component: Star },
+            { id: 'kalp', name: 'Kalp', component: Heart }
+        ];
+
+        const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
+        const getRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
+        const getMultipleRandomItems = (array, num) => shuffleArray(array).slice(0, num);
+
+        function App() {
+            const [gameState, setGameState] = useState('start');
+            const [score, setScore] = useState(0);
+            const [soundEnabled, setSoundEnabled] = useState(true);
+            const [target, setTarget] = useState(null);
+            const [options, setOptions] = useState([]);
+            const [wrongAnswers, setWrongAnswers] = useState([]);
+            const [showSuccess, setShowSuccess] = useState(false);
+
+            const speak = useCallback((text) => {
+                if (!soundEnabled || !('speechSynthesis' in window)) return;
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'tr-TR';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.2;
+                window.speechSynthesis.speak(utterance);
+            }, [soundEnabled]);
+
+            const generateRound = useCallback(() => {
+                setWrongAnswers([]);
+                setShowSuccess(false);
+                
+                const newRoundType = Math.random() > 0.5 ? 'color' : 'shape';
+                let newOptions = [];
+                let newTarget = {};
+
+                if (newRoundType === 'color') {
+                    const selectedShape = getRandomItem(SHAPES);
+                    const selectedColors = getMultipleRandomItems(COLORS, 3);
+                    const targetColor = getRandomItem(selectedColors);
+                    
+                    newTarget = { type: 'color', value: targetColor.name, fullText: `${targetColor.name} olanı bul!` };
+                    newOptions = selectedColors.map(color => ({
+                        id: color.id, color: color, shape: selectedShape, isTarget: color.id === targetColor.id
+                    }));
+                } else {
+                    const selectedColor = getRandomItem(COLORS);
+                    const selectedShapes = getMultipleRandomItems(SHAPES, 3);
+                    const targetShape = getRandomItem(selectedShapes);
+                    
+                    newTarget = { type: 'shape', value: targetShape.name, fullText: `${targetShape.name} şeklini bul!` };
+                    newOptions = selectedShapes.map(shape => ({
+                        id: shape.id, color: selectedColor, shape: shape, isTarget: shape.id === targetShape.id
+                    }));
+                }
+
+                setTarget(newTarget);
+                setOptions(shuffleArray(newOptions));
+                setTimeout(() => speak(newTarget.fullText), 300);
+            }, [speak]);
+
+            const startGame = () => {
+                setScore(0);
+                setGameState('playing');
+                speak("Hadi oynayalım!");
+                setTimeout(generateRound, 1000);
+            };
+
+            const handleChoice = (option) => {
+                if (showSuccess) return;
+
+                if (option.isTarget) {
+                    setShowSuccess(true);
+                    speak(getRandomItem(["Harika!", "Çok iyi!", "Süper!", "Aferin sana!"]));
+                    
+                    setTimeout(() => {
+                        const newScore = score + 1;
+                        setScore(newScore);
+                        if (newScore >= 5) {
+                            setGameState('won');
+                            speak("Tebrikler! Sen bir yıldızsın! Oyunu kazandın.");
+                        } else {
+                            generateRound();
+                        }
+                    }, 2000);
+                } else {
+                    if (!wrongAnswers.includes(option.id)) {
+                        setWrongAnswers(prev => [...prev, option.id]);
+                        speak("Bir daha dene!");
+                    }
+                }
+            };
+
+            if (gameState === 'start') {
+                return (
+                    <div className="min-h-screen bg-sky-100 flex flex-col items-center justify-center p-4 h-screen max-h-screen">
+                        <div className="bg-white p-8 rounded-3xl shadow-2xl text-center max-w-md w-full">
+                            <div className="flex justify-center mb-6">
+                                <Sparkles className="w-20 h-20 text-yellow-400 animate-pulse" />
+                            </div>
+                            <h1 className="text-4xl font-black text-sky-600 mb-4 tracking-wider">OYUN ZAMANI!</h1>
+                            <p className="text-xl text-slate-600 mb-8 font-medium">Renkleri ve şekilleri bulalım.</p>
+                            
+                            <button onClick={startGame} className="w-full bg-green-500 hover:bg-green-400 text-white font-bold text-3xl py-6 px-8 rounded-2xl shadow-[0_8px_0_rgb(21,128,61)] hover:shadow-[0_4px_0_rgb(21,128,61)] hover:translate-y-1 transition-all flex items-center justify-center gap-4 active:shadow-none active:translate-y-2">
+                                <Play fill="currentColor" className="w-10 h-10" />
+                                OYNA
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'won') {
+                return (
+                    <div className="min-h-screen bg-yellow-100 flex flex-col items-center justify-center p-4 h-screen max-h-screen">
+                        <div className="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-md w-full border-8 border-yellow-300">
+                            <div className="flex justify-center mb-6">
+                                <Award className="w-32 h-32 text-yellow-500 animate-bounce" />
+                            </div>
+                            <h1 className="text-4xl font-black text-orange-500 mb-4">HARİKA!</h1>
+                            <p className="text-2xl text-slate-600 mb-8 font-bold">5 Yıldız Kazandın!</p>
+                            
+                            <div className="flex justify-center gap-2 mb-8">
+                               {[...Array(5)].map((_, i) => (
+                                  <Star key={i} fill="currentColor" className="w-12 h-12 text-yellow-400 animate-pop" style={{animationDelay: `${i * 0.1}s`}} />
+                               ))}
+                            </div>
+
+                            <button onClick={startGame} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold text-2xl py-5 px-8 rounded-2xl shadow-[0_8px_0_rgb(2,132,199)] hover:shadow-[0_4px_0_rgb(2,132,199)] hover:translate-y-1 transition-all active:shadow-none active:translate-y-2">
+                                TEKRAR OYNA
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none h-screen max-h-screen overflow-hidden">
+                    <div className="bg-white p-4 shadow-md flex justify-between items-center px-6">
+                        <div className="flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full border-2 border-yellow-300">
+                            <Star fill="currentColor" className="w-8 h-8 text-yellow-500" />
+                            <span className="text-3xl font-black text-yellow-600">{score} / 5</span>
+                        </div>
+                        
+                        <button onClick={() => {
+                            setSoundEnabled(!soundEnabled);
+                            if(soundEnabled) window.speechSynthesis.cancel();
+                        }} className="p-3 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors">
+                            {soundEnabled ? <Volume2 className="w-8 h-8 text-slate-600" /> : <VolumeX className="w-8 h-8 text-slate-400" />}
+                        </button>
+                    </div>
+
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
+                        <div className="mb-8 md:mb-12 text-center">
+                            <h2 onClick={() => speak(target?.fullText)} className={`text-4xl md:text-5xl font-black text-slate-800 cursor-pointer ${showSuccess ? 'animate-pop text-green-500' : ''}`}>
+                                {showSuccess ? "Harika!" : target?.fullText}
+                            </h2>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-6 md:gap-8 w-full px-4 justify-center items-center">
+                            {options.map((option) => {
+                                const ShapeIcon = option.shape.component;
+                                const isWrong = wrongAnswers.includes(option.id);
+                                const isCorrectAndFound = showSuccess && option.isTarget;
+                                const isHidden = showSuccess && !option.isTarget;
+
+                                return (
+                                    <button
+                                        key={option.id}
+                                        onClick={() => handleChoice(option)}
+                                        disabled={isWrong || showSuccess}
+                                        className={`
+                                            relative flex items-center justify-center p-8 md:p-14 w-full sm:w-auto
+                                            bg-white rounded-[3rem] shadow-xl border-4 border-slate-100
+                                            transition-all duration-300 ease-in-out
+                                            ${isWrong ? 'opacity-50 animate-wobble bg-slate-100 grayscale' : 'active:scale-95'}
+                                            ${isCorrectAndFound ? 'scale-110 shadow-2xl border-green-400 bg-green-50 z-10' : ''}
+                                            ${isHidden ? 'opacity-0 scale-75 pointer-events-none' : 'opacity-100'}
+                                        `}
+                                    >
+                                        <ShapeIcon 
+                                            className={`w-28 h-28 md:w-40 md:h-40 ${isCorrectAndFound ? 'animate-pop' : ''}`} 
+                                            color={option.color.hex} 
+                                            fill={option.color.hex} 
+                                        />
+                                        {isCorrectAndFound && (
+                                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                              <Sparkles className="w-36 h-36 md:w-48 md:h-48 text-yellow-400 animate-ping opacity-50 absolute" />
+                                           </div>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
