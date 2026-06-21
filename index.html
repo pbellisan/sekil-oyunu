@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <!-- Mobil cihazlarda uygulamanın tam ekran ve doğru ölçekte görünmesini sağlar -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#bae6fd" />
     <title>Renk ve Şekil Oyunu</title>
@@ -42,7 +42,7 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-type="module">
         const { useState, useEffect, useCallback } = React;
 
         // --- İkonlar (Dışa bağımlılığı kaldırmak için SVG olarak eklendi) ---
